@@ -1,61 +1,35 @@
 <template>
-  <div id="app">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
-
-    <div>count : {{count}}</div>
-    <div>power count : {{powerCount}}</div>
-    <div>info : {{info}}</div>
-    <button @click="add">increment</button>
-    <button @click="stub">decrement</button>
-    <button @click="asyncRefreshName">asyncRefreshName</button>
-
-
+  <div>
+    <button @click="changeHash('foo')">foo</button>
+    <button @click="changeHash('bar')">bar</button>
+    <component :is="currentHash"></component>
   </div>
 </template>
-
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-import { mapGetters , mapState} from 'vuex'
-
+import Foo from '@/components/Foo'
+import Bar from '@/components/Bar'
 export default {
   name: 'App',
-  components: {
-    HelloWorld,
-  },
+  render(h){
 
-  methods:{
-    add(){
-      this.$store.commit('increment')
-    },
-    stub(){
-      this.$store.commit('decrement')
-    },
-    asyncRefreshName(){
-      this.$store.dispatch('refreshName')
+  },
+  data () {
+    return {
+      currentHash: 'foo',
     }
   },
-  computed:{
-    ...mapState(['count','info']),
-    ...mapGetters([
-      'powerCount'
-    ])
+  methods: {
+    changeHash (component) {
+      this.currentHash = component
+    },
   },
-  created () {
-    console.log('father created')
-  },
-  mounted () {
-    console.log('father mounted')
+  components: {
+    foo:Foo,
+    bar:Bar
   },
 }
 </script>
 
 <style>
-  #app {
-    font-family: Avenir, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-align: center;
-    color: #2c3e50;
-    margin-top: 60px;
-  }
+
 </style>

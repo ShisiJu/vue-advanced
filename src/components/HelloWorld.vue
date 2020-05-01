@@ -1,19 +1,12 @@
-<template>
-  <div class="hello">
-    子组件
-  </div>
-</template>
+
 
 <script>
 export default {
   name: 'HelloWorld',
-  created () {
-    console.log('son created')
-  },
-  mounted () {
-    console.log('son mounted')
-  }
+  render (createElement, context) {
 
+    return  createElement('div','hhhhh')
+  }
 }
 </script>
 
