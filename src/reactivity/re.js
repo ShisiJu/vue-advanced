@@ -1,3 +1,31 @@
+class Dep {
+  constructor () {
+    this.subscribers = new Set()
+  }
+
+  notify () {
+    this.subscribers.forEach(sub => {
+      sub.updater()
+    })
+  }
+
+  addSubscriber (watcher) {
+    if (!watcher) {
+      return
+    }
+    this.subscribers.add(watcher)
+  }
+
+  depend () {
+    if (Dep.target !== null) {
+      this.subscribers.add(this)
+      Dep.target = null
+    }
+  }
+}
+
+Dep.target = null
+
 class Watcher {
   constructor (vm, updater, oldValue) {
     this.vm = vm
@@ -5,8 +33,13 @@ class Watcher {
     this.oldValue = oldValue
   }
 
-  update(newValue){
-    if(newValue === this.oldValue){
+  setOldValue(oldValue){
+    this.oldValue = oldValue
+  }
+
+
+  update (newValue) {
+    if (newValue === this.oldValue) {
       return
     }
     this.updater()
@@ -21,9 +54,11 @@ class Observer {
 
   observe (obj) {
     Object.keys(obj).forEach(key => {
+      let dep = new Dep()
       let val = obj[key]
       Object.defineProperty(obj, key, {
         get () {
+          Dep.target = dep
           return val
         },
         set (newVal) {
@@ -35,51 +70,12 @@ class Observer {
         },
       })
 
-      if(typeof val === 'object'){
+      if (typeof val === 'object') {
         this.observe(val)
       }
     })
   }
-
-
 }
-
-class Dep {
-  constructor () {
-    this.subscribers = new Set()
-  }
-
-  notify () {
-    this.subscribers.forEach(sub => {
-      sub.updater()
-    })
-  }
-
-  addSubscriber(watcher){
-    this.subscribers.add(watcher)
-  }
-
-  depend () {
-    if (Dep.target !== null) {
-      this.subscribers.add(this)
-      Dep.target = null
-    }
-  }
-}
-
-class Subscriber {
-  constructor () {}
-
-  update () {
-
-  }
-
-}
-
-
-let dep = new Dep()
-
-Dep.target = null
 
 class JueExpr {
   constructor (vm, expr) {
@@ -141,20 +137,25 @@ class Compiler {
       return
     }
     let vm = this.vm
-    let oldValue = fn()
-    let watcher = new Watcher(this.vm, fn, oldValue)
-    dep.addSubscriber(watcher)
+    let watcher = new Watcher(vm, fn)
+    fn()
+
     function fn () {
       dom.textContent = text.replace(defaultTagRE, (...args) => {
         let expr = args[1]
         let jueExpr = new JueExpr(vm, expr)
-        return jueExpr.text()
+        // 下面的方法必然会触发 get
+        let compiledResult = jueExpr.text()
+        Dep.target.addSubscriber(watcher)
+        Dep.target = null
+        watcher.setOldValue(compiledResult)
+        return compiledResult
       })
       return dom.textContent
     }
   }
 
-  updateText(dom,text){
+  updateText (dom, text) {
     let defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g
     dom.textContent = text.replace(defaultTagRE, (...args) => {
       let expr = args[1]
@@ -162,9 +163,6 @@ class Compiler {
       return jueExpr.text()
     })
   }
-
-
-
 
   compileElement (dom) {
     dom.childNodes.forEach(node => {
@@ -179,9 +177,9 @@ class Jue {
     let vm = this
     vm.$el = options.el
     this.$data = options.data()
-    this.compileTemplate()
     new Observer(vm, vm.$data)
     vm.proxyData(vm, this.$data)
+    this.compileTemplate()
   }
 
   compileTemplate () {
@@ -196,7 +194,7 @@ class Jue {
         },
         set (v) {
           obj[key] = v
-        }
+        },
       })
     })
   }
@@ -211,6 +209,7 @@ let app = new Jue({
         lastName: 'shisi',
       },
       age: 24,
+      sex: 'male'
     }
   },
   methods: {
