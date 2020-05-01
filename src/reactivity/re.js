@@ -1,54 +1,47 @@
-let activeUpdate = null
-
-function observe (obj) {
-  Object.keys(obj).forEach(key => {
-    // 为每一个key创建一个对应的dep 用于管理依赖
-    let dep = new Dep()
-    let value = obj[key]
-    // 通过ES6中的 Object.defineProperty 对定义的数据进行数据劫持
-    Object.defineProperty(obj, key, {
-      get () {
-        // 通过autoRun 使得 activeUpdate 是 logDoubleB
-        dep.depend()
-        return value
-      },
-      set (v) {
-        value = v
-        dep.notify()
-      },
-    })
-  })
-}
-
 class Watcher {
-  constructor (obj,key) {
-    Object.defineProperty(obj, key, {
-      get () {
-        return obj[key]
-      },
-      set (newVal) {
-        if(newVal === obj[key] ){
-          return
-        }
-        obj[key] = newVal
-      },
-    })
+  constructor (vm, updater, oldValue) {
+    this.vm = vm
+    this.updater = updater
+    this.oldValue = oldValue
+  }
+
+  update(newValue){
+    if(newValue === this.oldValue){
+      return
+    }
+    this.updater()
   }
 }
 
 class Observer {
-  constructor (obj) {
-    observe(obj)
+  constructor (vm, obj) {
+    this.vm = vm
+    this.observe(vm, obj)
   }
 
-  observe(obj){
+  observe (obj) {
     Object.keys(obj).forEach(key => {
-      if(typeof key === 'object'){
-        observe(key)
+      let val = obj[key]
+      Object.defineProperty(obj, key, {
+        get () {
+          return val
+        },
+        set (newVal) {
+          if (newVal === obj[key]) {
+            return
+          }
+          val = newVal
+          dep.notify()
+        },
+      })
+
+      if(typeof val === 'object'){
+        this.observe(val)
       }
-      new Watcher(obj,key)
     })
   }
+
+
 }
 
 class Dep {
@@ -58,45 +51,126 @@ class Dep {
 
   notify () {
     this.subscribers.forEach(sub => {
-      sub()
+      sub.updater()
     })
   }
 
+  addSubscriber(watcher){
+    this.subscribers.add(watcher)
+  }
+
   depend () {
-    if (activeUpdate) {
-      this.subscribers.add(activeUpdate)
+    if (Dep.target !== null) {
+      this.subscribers.add(this)
+      Dep.target = null
     }
   }
+}
+
+class Subscriber {
+  constructor () {}
+
+  update () {
+
+  }
+
+}
+
+
+let dep = new Dep()
+
+Dep.target = null
+
+class JueExpr {
+  constructor (vm, expr) {
+    this.data = vm.$data
+    this.expr = expr
+  }
+
+  getValue () {
+    return this.expr.split('.').reduce((acc, cur) => {
+      return acc[cur]
+    }, this.data)
+  }
+
+  text () {
+    let value = this.getValue()
+    return value.toString()
+  }
+
 }
 
 class Compiler {
 
   constructor (vm) {
+    this.vm = vm
     this.loadTemplate(vm.$el)
   }
 
-  loadTemplate(el){
-  //  把节点加载到内存中
-    let docs = document.querySelector(el)
-    docs.nodeType === 1
+  loadTemplate (el) {
+    //  把节点加载到内存中
+    let node = document.querySelector(el)
+    let fragment = document.createDocumentFragment()
+    let currentDom = node.firstChild
 
-    let fragment = document.createDocumentFragment();
-
-    docs.firstChild
-
-    fragment.appendChild()
-
-
-
-  //  如果是文本节点
-  //  遇到{{}} 进行替换
-  //  如果读取元素
-  //  重复执行上两步
-  //  处理完成后,再从内存放入html中
-
-
+    while (currentDom != null) {
+      this.compile(currentDom)
+      fragment.appendChild(currentDom)
+      currentDom = node.firstChild
+    }
+    node.appendChild(fragment)
   }
 
+  compile (dom) {
+    this.compiledByNodeType(dom, dom.nodeType)
+  }
+
+  compiledByNodeType (dom, nodeType) {
+    if (nodeType === 3) {
+      return this.compileText(dom)
+    }
+    if (nodeType === 1) {
+      return this.compileElement(dom)
+    }
+  }
+
+  compileText (dom) {
+    let text = dom.textContent
+    let defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g
+    if (!defaultTagRE.test(text)) {
+      return
+    }
+    let vm = this.vm
+    let oldValue = fn()
+    let watcher = new Watcher(this.vm, fn, oldValue)
+    dep.addSubscriber(watcher)
+    function fn () {
+      dom.textContent = text.replace(defaultTagRE, (...args) => {
+        let expr = args[1]
+        let jueExpr = new JueExpr(vm, expr)
+        return jueExpr.text()
+      })
+      return dom.textContent
+    }
+  }
+
+  updateText(dom,text){
+    let defaultTagRE = /\{\{((?:.|\n)+?)\}\}/g
+    dom.textContent = text.replace(defaultTagRE, (...args) => {
+      let expr = args[1]
+      let jueExpr = new JueExpr(this.vm, expr)
+      return jueExpr.text()
+    })
+  }
+
+
+
+
+  compileElement (dom) {
+    dom.childNodes.forEach(node => {
+      this.compile(node)
+    })
+  }
 
 }
 
@@ -104,18 +178,24 @@ class Jue {
   constructor (options) {
     let vm = this
     vm.$el = options.el
-    new Compiler(vm)
     this.$data = options.data()
-    new Observer(vm.$data)
-    vm.proxyData(vm,this.$data)
+    this.compileTemplate()
+    new Observer(vm, vm.$data)
+    vm.proxyData(vm, this.$data)
   }
 
+  compileTemplate () {
+    new Compiler(this)
+  }
 
-  proxyData(vm,obj){
+  proxyData (vm, obj) {
     Object.keys(obj).forEach(key => {
       Object.defineProperty(vm, key, {
         get () {
           return obj[key]
+        },
+        set (v) {
+          obj[key] = v
         }
       })
     })
@@ -123,12 +203,12 @@ class Jue {
 }
 
 let app = new Jue({
-  el:'#app',
+  el: '#app',
   data () {
     return {
       name: {
-        firstName:'ju',
-        lastName:'shisi'
+        firstName: 'ju',
+        lastName: 'shisi',
       },
       age: 24,
     }
@@ -139,3 +219,7 @@ let app = new Jue({
     },
   },
 })
+
+
+
+
