@@ -4597,6 +4597,11 @@ js-queue@2.0.0:
   dependencies:
     easy-stack "^1.0.0"
 
+js-tokens@6.0.0:
+  version "6.0.0"
+  resolved "https://registry.npm.taobao.org/js-tokens/download/js-tokens-6.0.0.tgz#3c29d3a851d4bd92f86415e65997b4b46b3665cc"
+  integrity sha1-PCnTqFHUvZL4ZBXmWZe0tGs2Zcw=
+
 "js-tokens@^3.0.0 || ^4.0.0", js-tokens@^4.0.0:
   version "4.0.0"
   resolved "https://registry.npm.taobao.org/js-tokens/download/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"

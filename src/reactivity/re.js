@@ -14,35 +14,34 @@ class Dep {
       return
     }
     this.subscribers.add(watcher)
+    Dep.target = null
   }
 
-  depend () {
-    if (Dep.target !== null) {
-      this.subscribers.add(this)
-      Dep.target = null
-    }
-  }
 }
 
 Dep.target = null
 
 class Watcher {
-  constructor (vm, updater, oldValue) {
+  constructor (vm, updater ){
     this.vm = vm
     this.updater = updater
-    this.oldValue = oldValue
+    this.oldValue = null
+    this.isNew = true
   }
 
   setOldValue(oldValue){
-    this.oldValue = oldValue
-  }
-
-
-  update (newValue) {
-    if (newValue === this.oldValue) {
+    if (oldValue === this.oldValue){
+      this.isNew = false
       return
     }
-    this.updater()
+    this.oldValue = oldValue
+    this.isNew = true
+  }
+
+  update () {
+    if(this.isNew){
+      this.updater()
+    }
   }
 }
 
@@ -79,6 +78,7 @@ class Observer {
 
 class JueExpr {
   constructor (vm, expr) {
+    this.vm = vm
     this.data = vm.$data
     this.expr = expr
   }
@@ -147,7 +147,6 @@ class Compiler {
         // 下面的方法必然会触发 get
         let compiledResult = jueExpr.text()
         Dep.target.addSubscriber(watcher)
-        Dep.target = null
         watcher.setOldValue(compiledResult)
         return compiledResult
       })
@@ -177,8 +176,10 @@ class Jue {
     let vm = this
     vm.$el = options.el
     this.$data = options.data()
+    this.$methods = options.methods
     new Observer(vm, vm.$data)
     vm.proxyData(vm, this.$data)
+    vm.proxyMethods(vm, this.$methods)
     this.compileTemplate()
   }
 
@@ -198,6 +199,16 @@ class Jue {
       })
     })
   }
+
+  proxyMethods(vm, methods){
+    Object.keys(methods).forEach(key => {
+      Object.defineProperty(vm, key, {
+        get () {
+          return methods[key].bind(vm)
+        }
+      })
+    })
+  }
 }
 
 let app = new Jue({
@@ -213,9 +224,14 @@ let app = new Jue({
     }
   },
   methods: {
-    logName () {
-      console.log(this.data.name)
+    changeSex (sex) {
+      console.log('before '+this.sex)
+      this.sex = sex
+      console.log('after '+this.sex)
     },
+    getSex(){
+      return this.sex
+    }
   },
 })
 
